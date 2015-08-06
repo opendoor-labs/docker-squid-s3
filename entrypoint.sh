@@ -10,6 +10,9 @@ chown -R ${SQUID_USER}:${SQUID_USER} ${SQUID_LOG_DIR}
 mkdir -p ${SQUID_CACHE_DIR}
 chown -R ${SQUID_USER}:${SQUID_USER} ${SQUID_CACHE_DIR}
 
+/usr/lib/squid3/ssl_crtd -c -s /var/lib/ssl_db/
+chown -R ${SQUID_USER}:${SQUID_USER} /var/lib/ssl_db
+
 # deprecated: backward compatibility
 if [[ -f /etc/squid3/squid.user.conf ]]; then
   rm -rf /etc/squid3/squid.conf

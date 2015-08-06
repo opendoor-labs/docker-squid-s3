@@ -1,177 +1,18 @@
-[![Circle CI](https://circleci.com/gh/sameersbn/docker-squid.svg?style=shield)](https://circleci.com/gh/sameersbn/docker-squid)
-
-# sameersbn/squid
-
-- [Introduction](#introduction)
-  - [Contributing](#contributing)
-  - [Issues](#issues)
-- [Getting started](#getting-started)
-  - [Installation](#installation)
-  - [Quickstart](#quickstart)
-  - [Persistence](#persistence)
-  - [Configuration](#configuration)
-  - [Usage](#usage)
-  - [Logs](#logs)
-- [Maintenance](#maintenance)
-  - [Upgrading](#upgrading)
-  - [Shell Access](#shell-access)
-
 # Introduction
 
-`Dockerfile` to create a [Docker](https://www.docker.com/) container image for [Squid proxy server](http://www.squid-cache.org/).
+A `Dockerfile` to run a Squid caching proxy in SSL mode, intended to
+accelerate secure downloads from Amazon S3. Derived from:
+https://github.com/sameersbn/docker-squid.git
 
-Squid is a caching proxy for the Web supporting HTTP, HTTPS, FTP, and more. It reduces bandwidth and improves response times by caching and reusing frequently-requested web pages. Squid has extensive access controls and makes a great server accelerator.
+# Use within Boto.
 
-## Contributing
+To activate, first configure an HTTP forward proxy in boto
+(e.g.: S3Connection(proxy=os.getenv(“SQUID_HOST”), proxy_port=os.getenv(“SQUID_PORT”)))
 
-If you find this image useful here's how you can help:
+Then Amazon HTTPS download requests are not cacheable by default. To make a
+file opt-in cacheable, pass response_headers={'response-cache-control': 'public, max_age=36000’}
+on the download requests, for example:
 
-- Send a pull request with your awesome features and bug fixes
-- Help users resolve their [issues](../../issues?q=is%3Aopen+is%3Aissue).
-- Support the development of this image with a [donation](http://www.damagehead.com/donate/)
-
-## Issues
-
-Before reporting your issue please try updating Docker to the latest version and check if it resolves the issue. Refer to the Docker [installation guide](https://docs.docker.com/installation) for instructions.
-
-SELinux users should try disabling SELinux using the command `setenforce 0` to see if it resolves the issue.
-
-If the above recommendations do not help then [report your issue](../../issues/new) along with the following information:
-
-- Output of the `docker version` and `docker info` commands
-- The `docker run` command or `docker-compose.yml` used to start the image. Mask out the sensitive bits.
-- Please state if you are using [Boot2Docker](http://www.boot2docker.io), [VirtualBox](https://www.virtualbox.org), etc.
-
-# Getting started
-
-## Installation
-
-This image is available as a [trusted build](//hub.docker.com/u/sameersbn/squid) on the [Docker hub](//hub.docker.com) and is the recommended method of installation.
-
-```bash
-docker pull sameersbn/squid:latest
-```
-
-Alternatively you can build the image yourself.
-
-```bash
-git clone https://github.com/sameersbn/docker-squid.git
-cd docker-squid
-docker build --tag $USER/squid .
-```
-
-## Quickstart
-
-Start Squid using:
-
-```bash
-docker run --name squid -d --restart=always \
-  --publish 3128:3128 \
-  --volume /srv/docker/squid/cache:/var/spool/squid3 \
-  sameersbn/squid:latest
-```
-
-*Alternatively, you can use the sample [docker-compose.yml](docker-compose.yml) file to start the container using [Docker Compose](https://docs.docker.com/compose/)*
-
-> Any arguments specified on the `docker run` command are passed on the `redis-server` command.
-
-## Persistence
-
-For the cache to preserve its state across container shutdown and startup you should mount a volume at `/var/spool/squid3`.
-
-> *The [Quickstart](#quickstart) command already mounts a volume for persistence.*
-
-SELinux users should update the security context of the host mountpoint so that it plays nicely with Docker:
-
-```bash
-mkdir -p /srv/docker/squid
-chcon -Rt svirt_sandbox_file_t /srv/docker/squid
-```
-
-## Configuration
-
-Squid is a full featured caching proxy server and a large number of configuration parameters. To configure Squid as per your requirements edit the default [squid.conf](squid.conf) and volume mount it at `/etc/squid3/squid.conf`.
-
-```bash
-docker run --name squid -d --restart=always \
-  --publish 3128:3128 \
-  --volume /path/to/squid.conf:/etc/squid3/squid.user.conf \
-  --volume /srv/docker/squid/cache:/var/spool/squid3 \
-  sameersbn/squid:latest
-```
-
-To reload the Squid configuration on a running instance you can send the `HUP` signal to the container.
-
-```bash
-docker kill -s HUP squid
-```
-
-## Usage
-
-Configure your web browser network/connection settings to use the proxy server which is available at `172.17.42.1:3128`
-
-If you are using Linux then you can also add the following lines to your `.bashrc` file allowing command line applications to use the proxy server for outgoing connections.
-
-```bash
-export ftp_proxy=http://172.17.42.1:3128
-export http_proxy=http://172.17.42.1:3128
-export https_proxy=http://172.17.42.1:3128
-```
-
-To use Squid in you Docker containers add the following line to your `Dockerfile`.
-
-```dockerfile
-ENV http_proxy=http://172.17.42.1:3128 \
-    https_proxy=http://172.17.42.1:3128 \
-    ftp_proxy=http://172.17.42.1:3128
-```
-
-## Logs
-
-To access the Squid logs, located at `/var/log/squid3/`, you can use `docker exec`. For example, if you want to tail the access logs:
-
-```bash
-docker exec -it squid tail -f /var/log/squid3/access.log
-```
-
-You can also mount a volume at `/var/log/squid3/` so that the logs are directly accessible on the host.
-
-# Maintenance
-
-## Upgrading
-
-To upgrade to newer releases:
-
-  1. Download the updated Docker image:
-
-  ```bash
-  docker pull sameersbn/squid:latest
-  ```
-
-  2. Stop the currently running image:
-
-  ```bash
-  docker stop squid
-  ```
-
-  3. Remove the stopped container
-
-  ```bash
-  docker rm -v squid
-  ```
-
-  4. Start the updated image
-
-  ```bash
-  docker run -name squid -d \
-    [OPTIONS] \
-    sameersbn/squid:latest
-  ```
-
-## Shell Access
-
-For debugging and maintenance purposes you may want access the containers shell. If you are using Docker version `1.3.0` or higher you can access a running containers shell by starting `bash` using `docker exec`:
-
-```bash
-docker exec -it squid bash
-```
+key.get_contents_to_filename(…,
+    response_headers={'response-cache-control':
+                      'public, max_age=36000’})
